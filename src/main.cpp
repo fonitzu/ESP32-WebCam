@@ -4,16 +4,35 @@
   Complete project details at https://randomnerdtutorials.com  
 *********/
 
+/*
+	Open an access point to be able to configure the network name and credentials
+	for the network which will connect to.
+
+	After connecting to "ESP32-Access-Point", open 192.168.4.1 to enter
+	the network name and password.
+
+	The ESP32-CAM will turn off the access point and connect to the network
+	using given password.
+*/
+
 // Load Wi-Fi library
 #include <WiFi.h>
 #include <WebServer.h>
 
-// Replace with your network credentials
+// Access point name
 const char* ssid     = "ESP32-Access-Point";
+// Access point password
 const char* password = "123456789";
 
 WebServer server( 80 );
 
+/*
+	Web page (root), used to set the network name to connect to and the password.
+
+	POST is used to send data back to ESP32-CAM (network name and password) when pressing "Submit".
+	With "Connect", the Access point is turned off and the ESP32-CAM connects to the given
+	network using given password.
+*/
 const char * html =            
 "<!DOCTYPE html>\
 <html>\
@@ -49,9 +68,12 @@ const char * html =
 	</body>\
 </html>";
 
+// Network name to connect to
 String Ssid;
+// Password for the network to connect to
 String Psk;
 
+// Retrieve network name and password for the network to connect to
 void HandleRoot( void )
 {
 	String root_page( html );
@@ -80,6 +102,7 @@ void HandleRoot( void )
 	server.send( 200, "text/html", root_page );
 }
 
+// Turn the Access point off and connect to the given network
 void HandleConnect( void )
 {
 	Serial.println( "Disconnecting.." );
@@ -93,6 +116,7 @@ void HandleConnect( void )
 	server.begin();
 }
 
+// Start the Access point and wait for network configuration data (name and password)
 void setup()
 {
   Serial.begin( 115200 );
@@ -112,6 +136,7 @@ void setup()
   Serial.println( "HTTP server started" );
 }
 
+// Run the web server
 void loop( void )
 {
 	server.handleClient();
