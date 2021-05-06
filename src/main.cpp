@@ -18,13 +18,18 @@
 // Load Wi-Fi library
 #include <WiFi.h>
 #include <WebServer.h>
+#include "esp_camera.h"
+
+#define CAMERA_MODEL_AI_THINKER
+
+#include "camera_pins.h"
 
 // Access point name
-const char* ssid     = "ESP32-Access-Point";
+const char *ssid = "ESP32-Access-Point";
 // Access point password
-const char* password = "123456789";
+const char *password = "123456789";
 
-WebServer server( 80 );
+WebServer server(80);
 
 /*
 	Web page (root), used to set the network name to connect to and the password.
@@ -33,8 +38,8 @@ WebServer server( 80 );
 	With "Connect", the Access point is turned off and the ESP32-CAM connects to the given
 	network using given password.
 */
-const char * html =            
-"<!DOCTYPE html>\
+const char *html =
+	"<!DOCTYPE html>\
 <html>\
 	<head>\
 		<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
@@ -80,7 +85,7 @@ void HandleRoot( void )
 
 	Serial.println( "Parsing web page: " );
 	Serial.printf( "POST arguments: %d\r\n", server.args() );
-	for( int i = 0; i < server.args(); ++ i )
+	for( int i = 0; i < server.args(); ++i )
 	{
 		Serial.print( server.argName( i ) );
 		Serial.print( ": " );
@@ -96,11 +101,35 @@ void HandleRoot( void )
 	{
 		Psk = server.arg( "PSK" );
 	}
-	
+
 	root_page.replace( "%s1", Ssid );
 	root_page.replace( "%s2", Psk );
 	server.send( 200, "text/html", root_page );
 }
+
+
+void HandleImage( void )
+{
+	camera_fb_t* fb = esp_camera_fb_get();
+	if( fb == nullptr )
+	{
+		return;
+	}
+
+	Serial.print( "New image [" );
+	Serial.print( fb->width );
+	Serial.print( " x " );
+	Serial.print( fb->height );
+	Serial.print( " ]." );
+
+	//replace this with your own function
+	//display_image(fb->width, fb->height, fb->pixformat, fb->buf, fb->len);
+
+	server.send_P( 200, "image/jpeg", (const char*)fb->buf, fb->len );
+	//return the frame buffer back to be reused
+	esp_camera_fb_return( fb );
+}
+
 
 // Turn the Access point off and connect to the given network
 void HandleConnect( void )
@@ -116,24 +145,81 @@ void HandleConnect( void )
 	server.begin();
 }
 
+void SetupCamera(void)
+{
+	camera_config_t config;
+	config.ledc_channel = LEDC_CHANNEL_0;
+	config.ledc_timer = LEDC_TIMER_0;
+	config.pin_d0 = Y2_GPIO_NUM;
+	config.pin_d1 = Y3_GPIO_NUM;
+	config.pin_d2 = Y4_GPIO_NUM;
+	config.pin_d3 = Y5_GPIO_NUM;
+	config.pin_d4 = Y6_GPIO_NUM;
+	config.pin_d5 = Y7_GPIO_NUM;
+	config.pin_d6 = Y8_GPIO_NUM;
+	config.pin_d7 = Y9_GPIO_NUM;
+	config.pin_xclk = XCLK_GPIO_NUM;
+	config.pin_pclk = PCLK_GPIO_NUM;
+	config.pin_vsync = VSYNC_GPIO_NUM;
+	config.pin_href = HREF_GPIO_NUM;
+	config.pin_sscb_sda = SIOD_GPIO_NUM;
+	config.pin_sscb_scl = SIOC_GPIO_NUM;
+	config.pin_pwdn = PWDN_GPIO_NUM;
+	config.pin_reset = RESET_GPIO_NUM;
+	config.xclk_freq_hz = 20000000;
+	config.pixel_format = PIXFORMAT_JPEG;
+	//init with high specs to pre-allocate larger buffers
+	if( psramFound() )
+	{
+		config.frame_size = FRAMESIZE_UXGA;
+		config.jpeg_quality = 10;
+		config.fb_count = 2;
+	}
+	else
+	{
+		config.frame_size = FRAMESIZE_SVGA;
+		config.jpeg_quality = 12;
+		config.fb_count = 1;
+	}
+
+	// camera init
+	esp_err_t err = esp_camera_init( &config );
+	if( err != ESP_OK )
+	{
+		Serial.printf( "Camera init failed with error 0x%x", err );
+		return;
+	}
+
+/*
+	sensor_t* s = esp_camera_sensor_get();
+	s->set_framesize( s, FRAMESIZE_UXGA );*/
+}
+
 // Start the Access point and wait for network configuration data (name and password)
 void setup()
 {
-  Serial.begin( 115200 );
-  // Connect to Wi-Fi network with SSID and password
-  Serial.println( "Web Server " );
-  Serial.print( "Setting AP (Access Point)…" );
-  // Remove the password parameter, if you want the AP (Access Point) to be open
-  WiFi.softAP( ssid, password );
+	delay( 5000 );
+	Serial.begin( 115200 );
 
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print( "AP IP address: " );
-  Serial.println( IP );
+	Serial.println( "ESP32-CAM Starting..." );
 
-  server.on( "/", HandleRoot );
-  server.on( "/connect", HandleConnect );
-  server.begin();
-  Serial.println( "HTTP server started" );
+	SetupCamera();
+
+	// Connect to Wi-Fi network with SSID and password
+	Serial.println( "Web Server " );
+	Serial.print( "Setting AP (Access Point)…" );
+	// Remove the password parameter, if you want the AP (Access Point) to be open
+	WiFi.softAP( ssid, password );
+
+	IPAddress IP = WiFi.softAPIP();
+	Serial.print( "AP IP address: " );
+	Serial.println( IP );
+
+	server.on( "/", HandleRoot );
+	server.on( "/connect", HandleConnect );
+	server.on( "/image.jpg", HandleImage );
+	server.begin();
+	Serial.println( "HTTP server started" );
 }
 
 // Run the web server
