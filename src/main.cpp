@@ -103,7 +103,16 @@ void HandleRoot( void )
 	}
 
 	root_page.replace( "%s1", Ssid );
-	root_page.replace( "%s2", Psk );
+
+	if( Psk.isEmpty() )
+	{
+		root_page.replace( "%s2", "" );
+	}
+	else
+	{
+		root_page.replace( "%s2", "********" );
+	}
+	
 	server.send( 200, "text/html", root_page );
 }
 
