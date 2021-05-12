@@ -19,6 +19,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include "esp_camera.h"
+#include <Update.h>
 
 #define CAMERA_MODEL_AI_THINKER
 
@@ -72,6 +73,29 @@ const char *html =
 		</form>\
 	</body>\
 </html>";
+
+const char *OtaWebPage = 
+"\
+<html>\
+	<head>\
+		<style>\
+			html \
+			{ \
+				font-family: Helvetica; \
+				display: inline-block; \
+				margin: 0px auto;\
+				text-align: center;\
+			}\
+		</style>\
+	</head>\
+	<body>\
+		<h1>OTA update</h1>\
+		<form method='POST' action='/otaupdate' enctype='multipart/form-data'>\
+			<input type='file' name='update'><input type='submit' value='Update'>\
+		</form>\
+	</body>\
+</html>\
+";
 
 // Network name to connect to
 String Ssid;
@@ -140,6 +164,55 @@ void HandleImage( void )
 }
 
 
+void HandleOtaRequest( void )
+{
+	server.send( 200, "text/html", OtaWebPage );
+}
+
+void HandleUpdate( void )
+{
+	server.sendHeader( "Connection", "close" );
+	server.send( 200, "text/plain", ( Update.hasError() ) ? "FAIL" : "OK" );
+	ESP.restart();
+}
+
+void HandleOnUpdate( void )
+{
+	HTTPUpload& upload = server.upload();
+	if( upload.status == UPLOAD_FILE_START )
+	{
+		Serial.setDebugOutput( true );
+		Serial.printf( "Update: %s\n", upload.filename.c_str() );
+		if( Update.begin() == false )
+		{ //start with max available size
+			Update.printError( Serial );
+		}
+	}
+	else if( upload.status == UPLOAD_FILE_WRITE )
+	{
+		if( Update.write( upload.buf, upload.currentSize ) != upload.currentSize )
+		{
+			Update.printError( Serial );
+		}
+	}
+	else if( upload.status == UPLOAD_FILE_END )
+	{
+		if( Update.end( true ) )
+		{ //true to set the size to the current progress
+			Serial.printf( "Update Success: %u\nRebooting...\n", upload.totalSize );
+		}
+		else
+		{
+			Update.printError( Serial );
+		}
+		Serial.setDebugOutput( false );
+	}
+	else
+	{
+		Serial.printf( "Update Failed Unexpectedly (likely broken connection): status=%d\n", upload.status );
+	}
+}
+
 // Turn the Access point off and connect to the given network
 void HandleConnect( void )
 {
@@ -152,6 +225,8 @@ void HandleConnect( void )
 	wl_status_t result = WiFi.begin( Ssid.c_str(), Psk.c_str() );
 	Serial.println( "Connected." );
 	server.on( "/image.jpg", HandleImage );
+	server.on( "/ota", HandleOtaRequest );
+	server.on( "/otaupload", HTTP_POST, HandleUpdate, HandleOnUpdate );
 	server.begin();
 }
 
@@ -236,3 +311,5 @@ void loop( void )
 {
 	server.handleClient();
 }
+
+
