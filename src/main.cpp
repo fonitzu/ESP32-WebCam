@@ -142,6 +142,7 @@ void HandleConnect( void )
 	Serial.println( Ssid );
 	wl_status_t result = WiFi.begin( Ssid.c_str(), Psk.c_str() );
 	Serial.println( "Connected." );
+	server.on( "/image.jpg", HandleImage );
 	server.begin();
 }
 
@@ -217,7 +218,6 @@ void setup()
 
 	server.on( "/", HandleRoot );
 	server.on( "/connect", HandleConnect );
-	server.on( "/image.jpg", HandleImage );
 	server.begin();
 	Serial.println( "HTTP server started" );
 }
