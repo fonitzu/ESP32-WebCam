@@ -25,6 +25,9 @@
 
 #include "camera_pins.h"
 
+const char *VERSION = "%version";
+const char *Version = "Version 0.1";
+
 // Access point name
 const char *ssid = "ESP32-Access-Point";
 // Access point password
@@ -71,6 +74,10 @@ const char *html =
 		<form action=\"/connect\">\
 			<input type=\"submit\" value=\"Connect\"/>\
 		</form>\
+		<hr>\
+		<h3>\
+		%version\
+		</h3>\
 	</body>\
 </html>";
 
@@ -90,9 +97,13 @@ const char *OtaWebPage =
 	</head>\
 	<body>\
 		<h1>OTA update</h1>\
-		<form method='POST' action='/otaupdate' enctype='multipart/form-data'>\
+		<form method='POST' action='/otaupload' enctype='multipart/form-data'>\
 			<input type='file' name='update'><input type='submit' value='Update'>\
 		</form>\
+		<hr>\
+		<h3>\
+		%version\
+		</h3>\
 	</body>\
 </html>\
 ";
@@ -137,6 +148,8 @@ void HandleRoot( void )
 		root_page.replace( "%s2", "********" );
 	}
 	
+	root_page.replace( VERSION, Version );
+
 	server.send( 200, "text/html", root_page );
 }
 
@@ -166,7 +179,9 @@ void HandleImage( void )
 
 void HandleOtaRequest( void )
 {
-	server.send( 200, "text/html", OtaWebPage );
+	String web_page( OtaWebPage );
+	web_page.replace( VERSION, Version );
+	server.send( 200, "text/html", web_page );
 }
 
 void HandleUpdate( void )
