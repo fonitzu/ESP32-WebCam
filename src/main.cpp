@@ -26,7 +26,7 @@
 #include "camera_pins.h"
 
 const char *VERSION = "%version";
-const char *Version = "Version 0.1";
+const char *Version = "Version 0.2";
 
 // Access point name
 const char *ssid = "ESP32-Access-Point";
